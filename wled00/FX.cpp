@@ -447,56 +447,68 @@ uint16_t mode_rainbow_cycle(void) {
 }
 static const char _data_FX_MODE_RAINBOW_CYCLE[] PROGMEM = "Rainbow@!,Size;;!";
 
+// This is a custom WLED effect. The file where effects are stored varies
+// by WLED version and platform. You typically add this code to the
+// `FX.cpp` file and modify `FX.h` to register it.
+// This is a custom WLED effect. The file where effects are stored varies
+// by WLED version and platform. You typically add this code to the
+// `FX.cpp` file and modify `FX.h` to register it.
 uint16_t mode_rainbow_shimmer() {
 
-  unsigned counter = (strip.now * ((SEGMENT.speed >> 2) +2)) & 0xFFFF;
+  unsigned counter = (strip.now * ((SEGMENT.speed >> 2) + 2)) & 0xFFFF;
   counter = counter >> 8;
 
   for (unsigned i = 0; i < SEGLEN; i++) {
-    //intensity/29 = 0 (1/16) 1 (1/8) 2 (1/4) 3 (1/2) 4 (1) 5 (2) 6 (4) 7 (8) 8 (16)
-    uint8_t index = (i * (16 << (SEGMENT.intensity /29)) / SEGLEN) + counter;
+    // Standard rainbow effect.
+    uint8_t index = (i * (16 << (SEGMENT.intensity / 29)) / SEGLEN) + counter;
     SEGMENT.setPixelColor(i, SEGMENT.color_wheel(index));
   }
 
-  //standard rainbow above
+
+  uint32_t shimmerSpeed = 100 + (255 - SEGMENT.custom2) * 40; // good ranges from .1s to 10s
+  uint32_t shimmerSize = (SEGMENT.custom3 * SEGLEN / 2 >> 5) + 1;
+  uint32_t cycleTime = (255 - SEGMENT.custom1) * 150 + shimmerSpeed; //0-38 seconds plus shimmer speed
 
 
-  uint32_t cycleTime = 750 + (255 - SEGMENT.custom1)*150;// [.75,39] seconds
-  uint8_t shimmerSpeed = 100+(255-SEGMENT.custom2)*40;// [.1,10]seconds
-  uint8_t shimmerSize =(SEGMENT.custom3*SEGLEN/2>>5)+1; //ranges from aprox [1,SEGLEN/2]
+  uint32_t percCycle = strip.now % cycleTime;
+  float shimmerIndex = (float)percCycle / (float)shimmerSpeed * SEGLEN;
 
-
-  uint32_t percCycle = strip.now % cycleTime; //current timestate of the whole cycle. ranges from 0 to cycleTime -1
-  int CycleProg = (percCycle * 65535) / cycleTime;//16 bit progress value that takes between 750ms and 39 seconds to compleate cycle
-
-
-
-  if(percCycle <= shimmerSpeed)//shimmer is visable
+  if(!SEGMENT.check1)
   {
-    int shimmerProgress = (percCycle * 65535) / shimmerSpeed;//shimmer progress along the physical strip
-    //map visable Time to the LED index
-    int ledIndex = (shimmerProgress * (SEGLEN  - shimmerSize )) >> 16;//maps whole cy
+    shimmerIndex = SEGLEN - shimmerIndex;
+  }
 
-    for (int i = 0; i < shimmerSize; i++) {
-        // Calculate the current pixel's index on the strip.
-        int currentLed = ledIndex + i;
+  // Draw faded shimmer.
+  for (int i = 0; i < SEGLEN; i++) {
+    float distFromShimmerCenter = fabsf((float)i - shimmerIndex);
+    /*
+    if (distFromShimmerCenter > SEGLEN / 2) {
+      distFromShimmerCenter = SEGLEN - distFromShimmerCenter;
+    }
+*/
+    // Only process pixels that are within the shimmer's range.
+    if (distFromShimmerCenter < shimmerSize) {
+      // Calculate a fading value (brightness) based on distance from center.
+      // This creates a triangular fade.
+      float fade = 1.0f - (distFromShimmerCenter / shimmerSize);
+      uint8_t brightness = (uint8_t)(255 * fade);
 
-        // Ensure the current LED index is within the bounds of the strip.
-        if (currentLed < SEGLEN) {
-            // Apply the shimmer effect. This example uses a white pixel
-            // for the shimmer, but you can customize the color.
-            // A smoother transition or fade could also be applied here.
-            SEGMENT.setPixelColor(currentLed, 0xFFFFFF);
-        }
+      uint32_t existingColor = SEGMENT.getPixelColor(i);
+      uint32_t whiteColor = 0xFFFFFF;
+
+      // Blend the white shimmer color with the existing rainbow color.
+      // The `color_blend` function from the WLED library performs a
+      // proportional mix of two colors.
+      uint32_t finalColor = color_blend(existingColor, whiteColor, brightness);
+
+      SEGMENT.setPixelColor(i, finalColor);
     }
   }
 
   return FRAMETIME;
 }
-
-static const char _data_FX_MODE_RAINBOW_SHIMMER[] PROGMEM = "Rainbow Shimmer@!,Size;Shimmer frequancy;Shimmer Speed;Shimmer Length";
-
-
+static const char _data_FX_MODE_RAINBOW_SHIMMER[] PROGMEM = "Rainbow Shimmer@!,Size,Shimmer Frequency,Shimmer Speed,Shimmer Length,Reverse;;!";
+ 
 /*
  * Alternating pixels running function.
  */
