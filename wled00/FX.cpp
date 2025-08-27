@@ -447,6 +447,55 @@ uint16_t mode_rainbow_cycle(void) {
 }
 static const char _data_FX_MODE_RAINBOW_CYCLE[] PROGMEM = "Rainbow@!,Size;;!";
 
+uint16_t mode_rainbow_shimmer() {
+
+  unsigned counter = (strip.now * ((SEGMENT.speed >> 2) +2)) & 0xFFFF;
+  counter = counter >> 8;
+
+  for (unsigned i = 0; i < SEGLEN; i++) {
+    //intensity/29 = 0 (1/16) 1 (1/8) 2 (1/4) 3 (1/2) 4 (1) 5 (2) 6 (4) 7 (8) 8 (16)
+    uint8_t index = (i * (16 << (SEGMENT.intensity /29)) / SEGLEN) + counter;
+    SEGMENT.setPixelColor(i, SEGMENT.color_wheel(index));
+  }
+
+  //standard rainbow above
+
+
+  uint32_t cycleTime = 750 + (255 - SEGMENT.custom1)*150;// [.75,39] seconds
+  uint8_t shimmerSpeed = 100+(255-SEGMENT.custom2)*40;// [.1,10]seconds
+  uint8_t shimmerSize =(SEGMENT.custom3*SEGLEN/2>>5)+1; //ranges from aprox [1,SEGLEN/2]
+
+
+  uint32_t percCycle = strip.now % cycleTime; //current timestate of the whole cycle. ranges from 0 to cycleTime -1
+  int CycleProg = (percCycle * 65535) / cycleTime;//16 bit progress value that takes between 750ms and 39 seconds to compleate cycle
+
+
+
+  if(percCycle <= shimmerSpeed)//shimmer is visable
+  {
+    int shimmerProgress = (percCycle * 65535) / shimmerSpeed;//shimmer progress along the physical strip
+    //map visable Time to the LED index
+    int ledIndex = (shimmerProgress * (SEGLEN  - shimmerSize )) >> 16;//maps whole cy
+
+    for (int i = 0; i < shimmerSize; i++) {
+        // Calculate the current pixel's index on the strip.
+        int currentLed = ledIndex + i;
+
+        // Ensure the current LED index is within the bounds of the strip.
+        if (currentLed < SEGLEN) {
+            // Apply the shimmer effect. This example uses a white pixel
+            // for the shimmer, but you can customize the color.
+            // A smoother transition or fade could also be applied here.
+            SEGMENT.setPixelColor(currentLed, 0xFFFFFF);
+        }
+    }
+  }
+
+  return FRAMETIME;
+}
+
+static const char _data_FX_MODE_RAINBOW_SHIMMER[] PROGMEM = "Rainbow Shimmer@!,Size;Shimmer frequancy;Shimmer Speed;Shimmer Length";
+
 
 /*
  * Alternating pixels running function.
@@ -5113,7 +5162,7 @@ uint16_t mode_2Dgameoflife(void) { // Written by Ewoud Wijma, inspired by https:
 
   if (!SEGENV.allocateData(dataSize + sizeof(uint16_t)*crcBufferLen)) return mode_static(); //allocation failed
   CRGB *prevLeds = reinterpret_cast<CRGB*>(SEGENV.data);
-  uint16_t *crcBuffer = reinterpret_cast<uint16_t*>(SEGENV.data + dataSize); 
+  uint16_t *crcBuffer = reinterpret_cast<uint16_t*>(SEGENV.data + dataSize);
 
   CRGB backgroundColor = SEGCOLOR(1);
 
@@ -6234,7 +6283,7 @@ uint16_t mode_2Dplasmarotozoom() {
   float *a = reinterpret_cast<float*>(SEGENV.data);
   byte *plasma = reinterpret_cast<byte*>(SEGENV.data+sizeof(float));
 
-  unsigned ms = strip.now/15;  
+  unsigned ms = strip.now/15;
 
   // plasma
   for (int j = 0; j < rows; j++) {
@@ -7570,7 +7619,7 @@ uint16_t mode_2Ddistortionwaves() {
   unsigned cy1 = beatsin8_t(15-speed,0,rows-1)*scale;
   unsigned cx2 = beatsin8_t(17-speed,0,cols-1)*scale;
   unsigned cy2 = beatsin8_t(14-speed,0,rows-1)*scale;
-  
+
   unsigned xoffs = 0;
   for (int x = 0; x < cols; x++) {
     xoffs += scale;
@@ -7579,9 +7628,9 @@ uint16_t mode_2Ddistortionwaves() {
     for (int y = 0; y < rows; y++) {
        yoffs += scale;
 
-      byte rdistort = cos8_t((cos8_t(((x<<3)+a )&255)+cos8_t(((y<<3)-a2)&255)+a3   )&255)>>1; 
-      byte gdistort = cos8_t((cos8_t(((x<<3)-a2)&255)+cos8_t(((y<<3)+a3)&255)+a+32 )&255)>>1; 
-      byte bdistort = cos8_t((cos8_t(((x<<3)+a3)&255)+cos8_t(((y<<3)-a) &255)+a2+64)&255)>>1; 
+      byte rdistort = cos8_t((cos8_t(((x<<3)+a )&255)+cos8_t(((y<<3)-a2)&255)+a3   )&255)>>1;
+      byte gdistort = cos8_t((cos8_t(((x<<3)-a2)&255)+cos8_t(((y<<3)+a3)&255)+a+32 )&255)>>1;
+      byte bdistort = cos8_t((cos8_t(((x<<3)+a3)&255)+cos8_t(((y<<3)-a) &255)+a2+64)&255)>>1;
 
       byte valueR = rdistort+ w*  (a- ( ((xoffs - cx)  * (xoffs - cx)  + (yoffs - cy)  * (yoffs - cy))>>7  ));
       byte valueG = gdistort+ w*  (a2-( ((xoffs - cx1) * (xoffs - cx1) + (yoffs - cy1) * (yoffs - cy1))>>7 ));
@@ -7591,7 +7640,7 @@ uint16_t mode_2Ddistortionwaves() {
       valueG = gamma8(cos8_t(valueG));
       valueB = gamma8(cos8_t(valueB));
 
-      SEGMENT.setPixelColorXY(x, y, RGBW32(valueR, valueG, valueB, 0)); 
+      SEGMENT.setPixelColorXY(x, y, RGBW32(valueR, valueG, valueB, 0));
     }
   }
 
@@ -7698,7 +7747,7 @@ uint16_t mode_2Dsoap() {
       }
       CRGB PixelA = CRGB::Black;
       if ((zD >= 0) && (zD < rows)) PixelA = SEGMENT.getPixelColorXY(x, zD);
-      else                          PixelA = ColorFromPalette(SEGPALETTE, ~noise3d[XY(x,abs(zD))]*3); 
+      else                          PixelA = ColorFromPalette(SEGPALETTE, ~noise3d[XY(x,abs(zD))]*3);
       CRGB PixelB = CRGB::Black;
       if ((zF >= 0) && (zF < rows)) PixelB = SEGMENT.getPixelColorXY(x, zF);
       else                          PixelB = ColorFromPalette(SEGPALETTE, ~noise3d[XY(x,abs(zF))]*3);
@@ -7842,6 +7891,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_DYNAMIC, &mode_dynamic, _data_FX_MODE_DYNAMIC);
   addEffect(FX_MODE_RAINBOW, &mode_rainbow, _data_FX_MODE_RAINBOW);
   addEffect(FX_MODE_RAINBOW_CYCLE, &mode_rainbow_cycle, _data_FX_MODE_RAINBOW_CYCLE);
+  addEffect(FX_MODE_RAINBOW_SHIMMER, &mode_rainbow_shimmer, _data_FX_MODE_RAINBOW_SHIMMER);
   addEffect(FX_MODE_SCAN, &mode_scan, _data_FX_MODE_SCAN);
   addEffect(FX_MODE_DUAL_SCAN, &mode_dual_scan, _data_FX_MODE_DUAL_SCAN);
   addEffect(FX_MODE_FADE, &mode_fade, _data_FX_MODE_FADE);
