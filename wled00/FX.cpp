@@ -447,12 +447,6 @@ uint16_t mode_rainbow_cycle(void) {
 }
 static const char _data_FX_MODE_RAINBOW_CYCLE[] PROGMEM = "Rainbow@!,Size;;!";
 
-// This is a custom WLED effect. The file where effects are stored varies
-// by WLED version and platform. You typically add this code to the
-// `FX.cpp` file and modify `FX.h` to register it.
-// This is a custom WLED effect. The file where effects are stored varies
-// by WLED version and platform. You typically add this code to the
-// `FX.cpp` file and modify `FX.h` to register it.
 uint16_t mode_rainbow_shimmer() {
 
   unsigned counter = (strip.now * ((SEGMENT.speed >> 2) + 2)) & 0xFFFF;
@@ -465,27 +459,26 @@ uint16_t mode_rainbow_shimmer() {
   }
 
 
-  uint32_t shimmerSpeed = 100 + (255 - SEGMENT.custom2) * 40; // good ranges from .1s to 10s
+  uint32_t shimmerSpeed = 100 + (255 - SEGMENT.custom2) * 40; //ranges from 100-10260ms
   uint32_t shimmerSize = (SEGMENT.custom3 * SEGLEN / 2 >> 5) + 1;
-  uint32_t cycleTime = (255 - SEGMENT.custom1) * 150 + shimmerSpeed; //0-38 seconds plus shimmer speed
-
+  uint32_t cycleTime = (255 - SEGMENT.custom1) * 150 + shimmerSpeed;//ranges from 
 
   uint32_t percCycle = strip.now % cycleTime;
-  float shimmerIndex = (float)percCycle / (float)shimmerSpeed * SEGLEN;
+  float shimmerIndex = (float)percCycle / (float)shimmerSpeed * (SEGLEN + 2*shimmerSize);
+  
+  shimmerIndex -= shimmerSize;
 
+  // reverse direction of shimmer
   if(!SEGMENT.check1)
   {
-    shimmerIndex = SEGLEN - shimmerIndex;
+    shimmerIndex = (float)SEGLEN - shimmerIndex;
   }
 
   // Draw faded shimmer.
   for (int i = 0; i < SEGLEN; i++) {
-    float distFromShimmerCenter = fabsf((float)i - shimmerIndex);
-    /*
-    if (distFromShimmerCenter > SEGLEN / 2) {
-      distFromShimmerCenter = SEGLEN - distFromShimmerCenter;
-    }
-*/
+
+    float distFromShimmerCenter = fabsf(shimmerIndex - i);
+    
     // Only process pixels that are within the shimmer's range.
     if (distFromShimmerCenter < shimmerSize) {
       // Calculate a fading value (brightness) based on distance from center.
@@ -497,8 +490,6 @@ uint16_t mode_rainbow_shimmer() {
       uint32_t whiteColor = 0xFFFFFF;
 
       // Blend the white shimmer color with the existing rainbow color.
-      // The `color_blend` function from the WLED library performs a
-      // proportional mix of two colors.
       uint32_t finalColor = color_blend(existingColor, whiteColor, brightness);
 
       SEGMENT.setPixelColor(i, finalColor);
